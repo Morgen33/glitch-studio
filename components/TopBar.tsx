@@ -1,16 +1,25 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/Button";
 import {
   createExportFilename,
-  downloadDataUrl,
+  downloadBlob,
   exportComposition,
+  type ExportFormat,
 } from "@/lib/canvas/exportComposition";
 import { useGlitchStore } from "@/store/useGlitchStore";
 
+const EXPORT_OPTIONS: { format: ExportFormat; label: string }[] = [
+  { format: "png", label: "PNG" },
+  { format: "jpeg", label: "JPG" },
+  { format: "gif", label: "GIF" },
+];
+
 export function TopBar() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const baseImage = useGlitchStore((state) => state.baseImage);
   const imageName = useGlitchStore((state) => state.imageName);
   const layers = useGlitchStore((state) => state.layers);
@@ -30,17 +39,24 @@ export function TopBar() {
     event.target.value = "";
   };
 
-  const handleExport = async () => {
-    if (!baseImage) {
+  const handleExport = async (format: ExportFormat) => {
+    if (!baseImage || isExporting) {
       return;
     }
 
-    const dataUrl = await exportComposition(baseImage, layers);
-    downloadDataUrl(dataUrl, createExportFilename());
+    setIsExporting(true);
+    setExportMenuOpen(false);
+
+    try {
+      const blob = await exportComposition(baseImage, layers, format);
+      downloadBlob(blob, createExportFilename(format));
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-950/90 px-4">
+    <header className="relative flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-950/90 px-4">
       <div className="flex items-center gap-4">
         <div>
           <h1 className="text-sm font-semibold tracking-[0.2em] text-zinc-100">
@@ -79,9 +95,31 @@ export function TopBar() {
         <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
           Upload
         </Button>
-        <Button variant="primary" disabled={!baseImage} onClick={handleExport}>
-          Export PNG
-        </Button>
+
+        <div className="relative">
+          <Button
+            variant="primary"
+            disabled={!baseImage || isExporting}
+            onClick={() => setExportMenuOpen((open) => !open)}
+          >
+            {isExporting ? "Exporting..." : "Download"}
+          </Button>
+
+          {exportMenuOpen && (
+            <div className="absolute right-0 top-full z-50 mt-2 min-w-[140px] overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl">
+              {EXPORT_OPTIONS.map((option) => (
+                <button
+                  key={option.format}
+                  type="button"
+                  onClick={() => void handleExport(option.format)}
+                  className="block w-full px-4 py-2.5 text-left text-sm text-zinc-200 transition-colors hover:bg-zinc-800"
+                >
+                  Download {option.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

@@ -55,6 +55,7 @@ type GlitchStore = {
   renameLayer: (layerId: string, name: string) => void;
   duplicateLayer: (layerId: string) => void;
   deleteLayer: (layerId: string) => void;
+  reorderLayers: (activeId: string, overId: string) => void;
   pushHistory: () => void;
   undo: () => void;
   redo: () => void;
@@ -325,6 +326,28 @@ export const useGlitchStore = create<GlitchStore>((set, get) => ({
       layers: nextLayers,
       selectedLayerId,
     });
+  },
+
+  reorderLayers: (activeId, overId) => {
+    if (activeId === overId) {
+      return;
+    }
+
+    const layers = get().layers;
+    const fromIndex = layers.findIndex((layer) => layer.id === activeId);
+    const toIndex = layers.findIndex((layer) => layer.id === overId);
+
+    if (fromIndex === -1 || toIndex === -1) {
+      return;
+    }
+
+    get().pushHistory();
+
+    const nextLayers = [...layers];
+    const [movedLayer] = nextLayers.splice(fromIndex, 1);
+    nextLayers.splice(toIndex, 0, movedLayer);
+
+    set({ layers: nextLayers });
   },
 
   pushHistory: () => {
